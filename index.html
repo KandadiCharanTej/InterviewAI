@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InterviewAI — Voice Coach</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Syne:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        :root {
+            --bg: #080810;
+            --surface: #0f0f1a;
+            --surface2: #161625;
+            --border: rgba(255, 255, 255, 0.07);
+            --text: #f0f0ff;
+            --muted: #6b6b8a;
+            --blue: #4f8ef7;
+            --purple: #8b5cf6;
+            --cyan: #22d3ee;
+            --green: #10b981;
+            --red: #f43f5e;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79, 142, 247, 0.07) 0%, transparent 60%), radial-gradient(ellipse 40% 40% at 20% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%), radial-gradient(ellipse 40% 40% at 80% 30%, rgba(34, 211, 238, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0
+        }
+
+        .screen {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            padding: 24px
+        }
+
+        @keyframes rise {
+            from {
+                opacity: 0;
+                transform: translateY(20px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.3
+            }
+        }
+
+        @keyframes ring-out {
+            0% {
+                transform: translate(-50%, -50%) scale(0.85);
+                opacity: 0.5
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0
+            }
+        }
+
+        @keyframes glow-breathe {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.6
+            }
+
+            50% {
+                transform: scale(1.12);
+                opacity: 1
+            }
+        }
+
+        @keyframes listen-pulse {
+
+            0%,
+            100% {
+                transform: scale(1)
+            }
+
+            50% {
+                transform: scale(1.15)
+            }
+        }
+
+        @keyframes speak-pulse {
+            from {
+                transform: scale(1)
+            }
+
+            to {
+                transform: scale(1.1)
+            }
+        }
+
+        @keyframes bar-dance {
+
+            0%,
+            100% {
+                transform: scaleY(0.3)
+            }
+
+            50% {
+                transform: scaleY(1)
+            }
+        }
+
+        @keyframes pop {
+            from {
+                opacity: 0;
+                transform: scale(0.9)
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1)
+            }
+        }
+
+        /* SETUP */
+        #setupScreen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+            animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1)
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px
+        }
+
+        .logo-ring {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, var(--blue), var(--purple), var(--cyan), var(--blue));
+            padding: 2px;
+            animation: spin 6s linear infinite
+        }
+
+        .logo-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px
+        }
+
+        .brand h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text) 0%, var(--blue) 60%, var(--purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px
+        }
+
+        .brand p {
+            font-size: 13px;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.6
+        }
+
+        .card {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px
+        }
+
+        .field label {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase
+        }
+
+        .field input {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s
+        }
+
+        .field input:focus {
+            border-color: rgba(79, 142, 247, 0.5);
+            box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.1)
+        }
+
+        .field input::placeholder {
+            color: rgba(107, 107, 138, 0.5)
+        }
+
+        .start-btn {
+            position: relative;
+            overflow: hidden;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            color: white;
+            font-family: 'Syne', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 24px rgba(79, 142, 247, 0.3)
+        }
+
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(79, 142, 247, 0.4)
+        }
+
+        .start-btn:active {
+            transform: translateY(0)
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 12px;
+            width: 100%
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border)
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            width: 100%
+        }
+
+        .feat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center
+        }
+
+        .feat-icon {
+            font-size: 18px
+        }
+
+        /* INTERVIEW */
+        #interviewScreen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100vh;
+            padding: 32px 24px 28px;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1)
+        }
+
+        .top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .top-brand {
+            font-family: 'Syne', sans-serif;
+            font-size: 15px;
+            font-weight: 600
+        }
+
+        .live-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 100px;
+            padding: 5px 12px;
+            font-size: 12px;
+            color: var(--green);
+            font-weight: 500
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse-dot 1.5s infinite
+        }
+
+        /* ORB */
+        .orb-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px
+        }
+
+        .orb-outer {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center
+        }
+
+        .halo {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid transparent;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.6s ease
+        }
+
+        .halo-1 {
+            width: 220px;
+            height: 220px
+        }
+
+        .halo-2 {
+            width: 178px;
+            height: 178px
+        }
+
+        .orb-glow {
+            position: absolute;
+            inset: -20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(79, 142, 247, 0.15) 0%, transparent 70%);
+            transition: all 0.5s ease;
+            animation: glow-breathe 3s ease-in-out infinite
+        }
+
+        .orb-core {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)
+        }
+
+        .orb-core::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, var(--blue), var(--purple), var(--cyan), var(--blue));
+            animation: spin 8s linear infinite
+        }
+
+        .orb-core::after {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, #1a1a35 0%, #080810 70%);
+            z-index: 1
+        }
+
+        .orb-outer.idle .orb-core {
+            width: 110px;
+            height: 110px
+        }
+
+        .orb-outer.idle .orb-core::before {
+            animation: spin 10s linear infinite
+        }
+
+        .orb-outer.listening .orb-core {
+            width: 128px;
+            height: 128px
+        }
+
+        .orb-outer.listening .orb-core::before {
+            background: conic-gradient(from 0deg, var(--cyan), var(--blue), var(--cyan));
+            animation: spin 3s linear infinite
+        }
+
+        .orb-outer.listening .orb-glow {
+            background: radial-gradient(circle, rgba(34, 211, 238, 0.2) 0%, transparent 70%);
+            animation: listen-pulse 1s ease-in-out infinite
+        }
+
+        .orb-outer.listening .halo-1 {
+            border-color: rgba(34, 211, 238, 0.15);
+            animation: ring-out 2s ease-out infinite
+        }
+
+        .orb-outer.listening .halo-2 {
+            border-color: rgba(34, 211, 238, 0.1);
+            animation: ring-out 2s ease-out infinite 0.4s
+        }
+
+        .orb-outer.speaking .orb-core {
+            width: 142px;
+            height: 142px
+        }
+
+        .orb-outer.speaking .orb-core::before {
+            background: conic-gradient(from 0deg, var(--purple), var(--blue), var(--cyan), var(--purple));
+            animation: spin 2s linear infinite
+        }
+
+        .orb-outer.speaking .orb-glow {
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, transparent 70%);
+            animation: speak-pulse 0.6s ease-in-out infinite alternate
+        }
+
+        .orb-outer.speaking .halo-1 {
+            border-color: rgba(139, 92, 246, 0.2);
+            animation: ring-out 1s ease-out infinite
+        }
+
+        .orb-outer.speaking .halo-2 {
+            border-color: rgba(139, 92, 246, 0.15);
+            animation: ring-out 1s ease-out infinite 0.25s
+        }
+
+        .audio-bars {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 4px;
+            height: 36px;
+            opacity: 0;
+            transition: opacity 0.3s
+        }
+
+        .audio-bars.active {
+            opacity: 1
+        }
+
+        .bar {
+            width: 4px;
+            border-radius: 2px;
+            background: linear-gradient(to top, var(--blue), var(--purple));
+            animation: bar-dance 0.8s ease-in-out infinite
+        }
+
+        .bar:nth-child(1) {
+            height: 8px;
+            animation-delay: 0s
+        }
+
+        .bar:nth-child(2) {
+            height: 18px;
+            animation-delay: 0.08s;
+            background: linear-gradient(to top, var(--purple), var(--cyan))
+        }
+
+        .bar:nth-child(3) {
+            height: 28px;
+            animation-delay: 0.16s
+        }
+
+        .bar:nth-child(4) {
+            height: 36px;
+            animation-delay: 0.12s;
+            background: linear-gradient(to top, var(--cyan), var(--blue))
+        }
+
+        .bar:nth-child(5) {
+            height: 24px;
+            animation-delay: 0.2s
+        }
+
+        .bar:nth-child(6) {
+            height: 14px;
+            animation-delay: 0.04s
+        }
+
+        .bar:nth-child(7) {
+            height: 8px;
+            animation-delay: 0.24s;
+            background: linear-gradient(to top, var(--purple), var(--cyan))
+        }
+
+        .status-label {
+            font-size: 15px;
+            color: var(--muted);
+            font-weight: 400;
+            text-align: center;
+            min-height: 22px;
+            transition: color 0.3s
+        }
+
+        .status-label.bright {
+            color: var(--text)
+        }
+
+        .transcript-box {
+            width: 100%;
+            max-height: 130px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scrollbar-width: none;
+            padding: 0 4px
+        }
+
+        .transcript-box::-webkit-scrollbar {
+            display: none
+        }
+
+        .bubble {
+            padding: 9px 14px;
+            border-radius: 14px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 88%;
+            animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)
+        }
+
+        .bubble.agent {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px
+        }
+
+        .bubble.user {
+            background: rgba(79, 142, 247, 0.1);
+            border: 1px solid rgba(79, 142, 247, 0.15);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding-top: 16px
+        }
+
+        .ctrl {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s
+        }
+
+        .ctrl:hover {
+            background: var(--surface2);
+            color: var(--text);
+            transform: scale(1.06)
+        }
+
+        .ctrl.muted {
+            background: rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.2);
+            color: var(--red)
+        }
+
+        .end-call {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #f43f5e, #e11d48);
+            color: white;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 24px rgba(244, 63, 94, 0.35);
+            transition: all 0.2s
+        }
+
+        .end-call:hover {
+            transform: scale(1.08);
+            box-shadow: 0 8px 32px rgba(244, 63, 94, 0.45)
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="screen" id="setupScreen">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:28px">
+            <div class="brand">
+                <div class="logo-ring">
+                    <div class="logo-inner">🎯</div>
+                </div>
+                <h1>InterviewAI</h1>
+                <p>Your personal AI interview coach.<br>Practice. Improve. Get hired.</p>
+            </div>
+            <div class="card">
+                <div class="field">
+                    <label>LiveKit URL</label>
+                    <input type="text" id="lkUrl" value="wss://live-voice-qihfs7t6.livekit.cloud" />
+                </div>
+                <div class="field">
+                    <label>Access Token</label>
+                    <input type="text" id="lkToken" placeholder="Paste token from create_room.py" />
+                </div>
+                <button class="start-btn" onclick="startInterview()">Start Interview Session →</button>
+            </div>
+            <div class="divider">Powered by</div>
+            <div class="features">
+                <div class="feat">
+                    <div class="feat-icon">🎤</div>Murf Voice
+                </div>
+                <div class="feat">
+                    <div class="feat-icon">🧠</div>Groq AI
+                </div>
+                <div class="feat">
+                    <div class="feat-icon">⚡</div>LiveKit
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="interviewScreen">
+        <div class="top-bar">
+            <div class="top-brand">InterviewAI</div>
+            <div class="live-pill">
+                <div class="live-dot"></div>Live
+            </div>
+        </div>
+
+        <div class="orb-stage">
+            <div class="orb-outer idle" id="orb">
+                <div class="halo halo-1"></div>
+                <div class="halo halo-2"></div>
+                <div class="orb-glow"></div>
+                <div class="orb-core"></div>
+            </div>
+            <div class="audio-bars" id="bars">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+            <div class="status-label" id="statusLabel">Connecting...</div>
+        </div>
+
+        <div class="transcript-box" id="transcript"></div>
+
+        <div class="controls-row">
+            <button class="ctrl" id="muteBtn" onclick="toggleMute()">🎤</button>
+            <button class="end-call" onclick="endInterview()">📵</button>
+            <button class="ctrl"
+                onclick="addBubble('Tip: Speak clearly and wait for the interviewer to finish before responding.','agent')">💡</button>
+        </div>
+    </div>
+
+    <script>
+        let room, muted = false;
+        async function startInterview() {
+            const url = document.getElementById('lkUrl').value.trim();
+            const token = document.getElementById('lkToken').value.trim();
+            if (!token) { alert('Please paste your access token'); return; }
+            document.getElementById('setupScreen').style.display = 'none';
+            const iv = document.getElementById('interviewScreen');
+            iv.style.display = 'flex';
+            setStatus('Connecting...', false);
+            try {
+                room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+                room.on(LivekitClient.RoomEvent.Connected, async () => {
+                    setStatus('Waiting for interviewer...', false); setOrb('idle');
+                    await room.localParticipant.setMicrophoneEnabled(true);
+                });
+                room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+                    if (p.identity !== room.localParticipant.identity) { setStatus('Interviewer is ready', true); setOrb('listening') }
+                });
+                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+                    if (track.kind === 'audio') { track.attach(); setOrb('speaking'); setStatus('Interviewer speaking...', true); document.getElementById('bars').classList.add('active') }
+                });
+                room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+                    if (track.kind === 'audio') { setOrb('listening'); setStatus('Your turn — speak now 🎤', true); document.getElementById('bars').classList.remove('active') }
+                });
+                room.on(LivekitClient.RoomEvent.DataReceived, (data, participant) => {
+                    try { const msg = JSON.parse(new TextDecoder().decode(data)); if (msg.text) addBubble(msg.text, participant ? 'agent' : 'user') } catch (e) { }
+                });
+                room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                    setOrb('idle'); setStatus('Interview ended. Great job! 🎉', false);
+                    document.getElementById('bars').classList.remove('active');
+                    setTimeout(() => { iv.style.display = 'none'; document.getElementById('setupScreen').style.display = 'flex' }, 4000);
+                });
+                await room.connect(url, token);
+            } catch (err) { setStatus('Connection failed: ' + err.message, false) }
+        }
+        async function endInterview() { if (room) await room.disconnect() }
+        async function toggleMute() {
+            if (!room) return; muted = !muted;
+            await room.localParticipant.setMicrophoneEnabled(!muted);
+            const btn = document.getElementById('muteBtn');
+            btn.textContent = muted ? '🔇' : '🎤'; btn.className = 'ctrl' + (muted ? ' muted' : '');
+            setStatus(muted ? 'Mic muted' : 'Mic on', !muted);
+        }
+        function setOrb(s) { document.getElementById('orb').className = 'orb-outer ' + s }
+        function setStatus(msg, bright) { const el = document.getElementById('statusLabel'); el.textContent = msg; el.className = 'status-label' + (bright ? ' bright' : '') }
+        function addBubble(text, type) {
+            const box = document.getElementById('transcript');
+            const b = document.createElement('div'); b.className = 'bubble ' + type; b.textContent = text;
+            box.appendChild(b); box.scrollTop = box.scrollHeight;
+            while (box.children.length > 8) box.removeChild(box.firstChild);
+        }
+    </script>
+</body>
+
+</html>
