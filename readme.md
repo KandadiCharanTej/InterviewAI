@@ -45,6 +45,7 @@ interview-bot/
 ⚙️ Setup
 Step 1 — Install dependencies
 pip install livekit-agents livekit-murf livekit-plugins-deepgram livekit-plugins-silero livekit-plugins-groq python-dotenv
+
 Step 2 — Add API keys to .env
 LIVEKIT_URL=your_livekit_url
 LIVEKIT_API_KEY=your_livekit_api_key
@@ -52,9 +53,11 @@ LIVEKIT_API_SECRET=your_livekit_api_secret
 DEEPGRAM_API_KEY=your_deepgram_api_key
 MURF_API_KEY=your_murf_api_key
 GROQ_API_KEY=your_groq_api_key
+
 Step 3 — Run
 python agenst.py dev
 python create_room.py
+
 Step 4 — Open index.html in Chrome, paste token, click Start Interview
 
 🎯 How It Works
